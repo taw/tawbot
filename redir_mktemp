@@ -1,0 +1,31 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+$|=1;
+use Tawbot;
+
+my $bot = Tawbot->new();
+while ($title = <>)
+{
+    chomp $title;
+    print "Downloading $title ... ";
+    my $form = $bot->get_edit_form($title);
+    my $cnt = $form->value("wpTextbox1");
+
+    if($cnt =~ m@<!--\s*tymczasowe\s*-->@i) {
+        print " already marked.\n";
+        next;    
+    } elsif($cnt !~ m@^#REDIRECT\s*\[\[(.*?)\]\](.*)@i) {
+        print " not a redirect.\n";
+        next;    
+    }
+    my $cnam = ucfirst($1);
+    $cnt = "#REDIRECT [[$cnam]] <!-- tymczasowe -->$2";
+#    print $cnt;
+    
+    $bot->fill_form($form, $cnt, "Przekierowanie oznaczone jako tymczasowe");
+    $bot->post($form);
+    
+    print "done.\n";
+}

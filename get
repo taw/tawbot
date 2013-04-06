@@ -1,0 +1,14 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+use Tawbot;
+package main;
+
+my $bot = Tawbot->new();
+# It doesn't make much sense to have different number than 1
+for my $title(@ARGV)
+{
+    my $raw = $bot->get_raw($title);
+    print $raw;
+}

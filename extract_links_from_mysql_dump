@@ -1,0 +1,67 @@
+#!/usr/bin/ruby
+$KCODE='u'
+
+$pages = {}
+#$links = []
+
+def register(str)
+    $strs << str
+    return ($strs.size - 1)
+end
+
+File.open("plwiki-latest-page.sql").each{|line|
+    $strs = []
+    line =~ /^INSERT INTO `(\S+)` VALUES (.*)$/ or next
+    table, values = $1, $2
+    values.gsub!(/('(\\.|''|.)*?')/) { "##{register($1)}" }
+    
+    # .scan was too slow
+    i = 0
+    while true
+        s = values.index('(', i) or break
+        i = values.index(')', s) or break
+        r = values[s+1, i-s-2] # .gsub(/#(\d+)/) { $strs[$1.to_i] }
+        pid, pns, ptitle = r.split(/,/)
+        $pages[pid] = [pns, ptitle.gsub(/#(\d+)/) { $strs[$1.to_i] }]
+    end
+}
+
+#$pages.each{|pid,(pns,ptitle)|
+#     p [pid, pns, ptitle]
+#}
+
+File.open("plwiki-latest-externallinks.sql").each{|line|
+    $strs = []
+    line =~ /^INSERT INTO `(\S+)` VALUES (.*)$/ or next
+    table, values = $1, $2
+    values.gsub!(/('(\\.|''|.)*?')/) { "##{register($1)}" }
+    
+    # .scan was too slow
+    i = 0
+    while true
+        s = values.index('(', i) or break
+        i = values.index(')', s) or break
+        r = values[s+1, i-s-2] # .gsub(/#(\d+)/) { $strs[$1.to_i] }
+        pid, lnk = r.split(/,/)
+        pns, ptitle = *$pages[pid]
+        next unless pns # There are a few bad IDs in the database
+        
+        #$links << [pns, ptitle, lnk.gsub(/#(\d+)/) { $strs[$1.to_i] }]
+        lnk = lnk.gsub(/#(\d+)/) { $strs[$1.to_i] }
+        
+        # Strip ''s, \x -> x
+        lnk = lnk.sub(/\A'(.*)'\Z/){$1}.gsub(/\\(.)/) { $1 }
+        
+        # Ignore links to self
+        next if lnk =~ %r[^http://pl.wikipedia.org/]
+        
+        ptitle = ptitle.sub(/\A'(.*)'\Z/){$1}.gsub(/\\(.)/) { $1 }
+        puts "#{pns}\t#{ptitle}\t#{lnk}"
+    end
+}
+
+#print "\n"
+
+#$links.each{|pns,ptitle,lnk|
+#     puts "#{pns}\t#{ptitle}\t#{lnk}"
+#}

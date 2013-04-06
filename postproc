@@ -1,0 +1,110 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+$|=1;
+# Unicode does not work anywhere, ucfirst is broken
+#require Encode;
+
+use Tawbot;
+our $bot = Tawbot->new();
+$bot->install_key_cache("article_cache");
+
+my $LT="";
+while(<>)
+{
+    m!^\Q[[\E(.*?)\Q]]\E \Q[[\E(.*?)\Q]]\E: (.*)! or die "Bad format of postproc input: $_";
+    my $target = $1;
+    my $redir  = $2;
+    my $articles = $3;
+    print STDERR "$target\n" unless $target eq $LT;
+    $LT = $target;
+#    my @articles = ($articles =~ m!\Q[[\E(.*?)\Q]]\E!g);
+
+    my $target_cnt = getraw($target);
+    my $redir_cnt = getraw($redir);
+    
+    my $source_is_temp = 0;
+    my $source_is_redir = 0;
+    my $source_points_at;
+
+    my $dest_is_temp = 0;
+    my $dest_is_redir = 0;
+    my $dest_points_at;
+    
+    if($redir_cnt =~ m!^\s*#REDIRECT!i) {
+        $source_is_redir = 1;
+        if($redir_cnt =~ m@<!--\s*tymczasow[ye]\s*-->@) {
+            $source_is_temp = 1;
+        }
+        if($redir_cnt =~ m!^\s*#REDIRECT:?\s*\Q[[\E(.*?)\Q]]\E!i) {
+            # Some cleanup
+            $source_points_at = ucfirst($1);
+            $source_points_at =~ s!_! !g;
+        } else {
+            die "Source $redir looks like a redirect, but is malformatted: $redir_cnt"
+        }
+    }
+    if($target_cnt =~ m!^\s*#REDIRECT!i) {
+        $dest_is_redir = 1;
+        if($target_cnt =~ m@<!--\s*tymczasow[ye]\s*-->@) {
+            $dest_is_temp = 1;
+        }
+        if($target_cnt =~ m!^\s*#REDIRECT:?\s*\Q[[\E(.*?)\Q]]\E!i) {
+            # Some cleanup
+            $dest_points_at = ucfirst($1);
+            $dest_points_at =~ s!_! !g;
+        } else {
+            die "Dest $target looks like a redirect, but is malformatted: $target_cnt"
+        }
+    }
+    # So we have the data, decide what to do
+    # First check if everything is exactly as we expected
+    if($source_is_redir and (!$source_is_temp) and (!$dest_is_redir) and ($source_points_at eq $target)) {
+#                print "OK [[$redir]]->[[$target]]\n";
+    # It's not, has source ceased to be a redirect ?
+    } elsif (!$source_is_redir) {
+        print "REVERSE/NONREDIR [[$redir]]->[[$target]]: $articles\n"
+    # Or maybe it is, but a temporary redirect ?
+    } elsif ($source_is_redir and $source_is_temp) {
+        print "REVERSE/TEMP [[$redir]]->[[$target]]: $articles\n"
+    # Source is a full redirect, does it point to somewhere else than dest ?
+    } elsif ($source_points_at ne $target) {
+        print "RELINK [[$redir]]<-[[$target]]->[[$source_points_at]]: $articles\n"
+    # So the dest must be a redirect too, is it temporary or permament redirect ?
+    } elsif ($dest_is_temp) {
+        # Temporary, well, let's ignore it
+#                print "OK [[$redir]]->[[$target]]\n"
+    } else {
+        # Permament redirect, do full relink
+        print "FULLRELINK [[$target]]->[[$dest_points_at]]: $articles\n";
+    }
+}
+
+sub getraw
+{
+    my $title = shift;
+    my $url = $bot->url(title=>$title, action=>"raw");
+    my $cnt = "";
+    eval { # Ignore errors
+        $cnt = $bot->get($url, $title);
+    };
+    return $cnt;
+    # Mark $cnt as utf8 for ucfirst/etc.
+#    return Encode::decode_utf8($cnt);
+#    my $dir = "articles";
+#    $fn = $title;
+#    $fn =~ s@([%/])@$1 eq "%" ? "%%" : "%:"@eg;
+#    $fn = "$dir/$fn";
+#    
+#    unless(-e $fn)
+#    {
+#                #die "Contents of $title not known" 
+#                return "";
+#    }
+#    open X, "<:utf8", $fn;
+#    local $/;
+#    my $cnt = <X>;
+#    close X;
+#    return $cnt;
+}

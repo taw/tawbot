@@ -1,0 +1,31 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+$|=1;
+use Tawbot;
+package main;
+
+#use utf8
+
+my $bot = Tawbot->new();
+
+for my $title(@ARGV)
+{
+    #chomp;
+    #next unless $bot->edit_ok($_);
+
+    my $form = $bot->get_edit_form($title);
+    my $cnt = $form->value("wpTextbox1");
+
+    if ($cnt =~ s!\s*----\s+\Q[[Grafika:Comiclogoblank.gif|20px]] '''Dyskusja'''  <!--   D Y S K U S J A   -->\E!) {
+        $cnt = $` . "\n# {{zostawić}} ~~~~" .$&.$';
+    } else {
+        print "Sorry, can't find the voting place\n";
+    }
+
+    #print $cnt;
+
+    $bot->fill_form($form, $cnt, "Zostawić");
+    $bot->post($form);
+}

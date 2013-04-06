@@ -1,0 +1,86 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+$|=1;
+
+use Tawbot;
+
+sub fix_links_to_redirects {
+    my ($bot,$article) = @_;
+    print "Checking what links to redirects to $article ... ";
+    my @links = $bot->what_links_to($article);
+    # Fix templates first
+    my @links_to_redirects = sort {
+        ((substr($b->[0],0,7) eq Szablon ? 1 : 0) - (substr($a->[0],0,7) eq Szablon ? 1 : 0))
+        ||
+        $a->[0] cmp $b->[0]
+    } grep {@$_ > 2} @links;
+    print "checked (", (scalar @links_to_redirects), " links to redirects).\n";
+
+    for my $fixme(@links_to_redirects)
+    {
+        my ($title, $is_redir, $to) = ($fixme->[0], $fixme->[1], $fixme->[2]);
+#                print "$title (REDIR? $is_redir) links to $to, which redirects to $article\n";
+#                next;
+
+        unless ($bot->edit_ok($title))
+        {
+            print "Title $title matched exclusion rule.\n";
+            next;
+        }
+
+        print "Trying $title ... ";
+        my $form = $bot->get_edit_form($title);
+        
+        if(defined $form->find_input("wpSummary")) {
+            print " downloaded.\n";
+        } else {
+            print " blocked.\n";
+            next;
+        }
+
+        if($is_redir) {
+            $form->value("wpSummary", "poprawione przekierowanie na przekierowanie: [[$to]] na [[$article]]");
+        } else {
+            $form->value("wpSummary", "poprawione linki na przekierowania: [[$to]] na [[$article]]");
+        }
+        my $cnt = $form->value("wpTextbox1");
+        my $changed = 0;
+        my $new_cnt = $bot->links_subst($cnt, sub {
+            my ($l, $d) = @_;
+            # utf8 version of ucfirst should be used
+            if($l eq $to or ucfirst($l) eq $to) {
+                print "* $title links to $to, fixed to $article\n";
+                $changed=1;
+                # Ignore description when fixing double redirects
+                if ($article eq $d or $is_redir) {
+                    return "[[$article]]"
+                } else {
+                    return "[[$article|$d]]"
+                }
+            } else {
+#                        print "Link to $l ($d), not to $to\n";
+                return;
+            }
+        });
+        if($changed) {
+            $form->value("wpTextbox1", $new_cnt);
+            $bot->post($form);
+            print "* done.\n";
+        } else {
+            # Probably needs a refresh, so post anyway
+            $bot->post($form);
+            print "* done (no changes).\n";
+        }
+    }
+}
+
+my $bot = Tawbot->new();
+
+while(<>)
+{
+    chomp;
+    my $article = $_;
+    fix_links_to_redirects($bot, $article);
+}

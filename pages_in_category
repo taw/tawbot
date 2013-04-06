@@ -1,0 +1,14 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+use Tawbot;
+
+my $bot = Tawbot->new();
+
+# Sometimes it's useful to list multiple categories
+for my $cat(@ARGV)
+{
+    my @articles = $bot->articles_in_category($cat);
+    print "$_\n" for @articles;
+}

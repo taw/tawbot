@@ -1,0 +1,37 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+$|=1;
+use Tawbot;
+use HTTP::Request::Common;
+
+my $bot = Tawbot->new();
+
+# It doesn't make much sense to have different number than 1
+for my $user(@ARGV)
+{
+    my @contributions = $bot->contributions($user);
+    for(@contributions)
+    {
+        my %c = %$_;
+#                print "NEW:\n";
+#                for $k(keys %$_) {
+#                    print "$k: $_->{$k}\n";
+#                }
+#                print "\n";
+
+#                my $new_cnt = $bot->get_raw_rev($c{title}, $c{revid});
+#                my $revid_prev = $bot->get_prev_revid($c{title}, $c{revid});
+#                my $old_cnt = $bot->get_raw_rev($c{title}, $revid_prev);
+    
+#                print "----\n";
+#                print $new_cnt;
+#                print "\n----\n";
+#                print $old_cnt;
+#                print "\n----\n";
+
+        my ($title, $summary, $minor, $revid) = @c{"title", "summary", "minor", "revid"};
+        print "[[$title]] $revid ($summary)", ($minor ? " m" : ""), "\n";
+    }
+}

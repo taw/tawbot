@@ -1,0 +1,19 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+$|=1;
+use Tawbot;
+
+my %args;
+
+my $bot = Tawbot->new(
+    "licence|license|l=s" => sub { $args{license} = $_[1] },
+    "summary|s=s" => sub { $args{summary} = $_[1] },
+    "w" => sub { $args{watchlist} = 1 },
+    "destfilename|d=s" => sub { $args{destfilename} = $_[1] },
+);
+
+my ($file) = @ARGV;
+
+$bot->upload($file, %args);

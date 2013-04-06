@@ -1,0 +1,13 @@
+#!/usr/bin/perl -w
+
+$|=1;
+use Tawbot;
+
+my $bot = Tawbot->new();
+
+for my $title (<>)
+{
+    chomp $title;
+    my @links = $bot->what_links_to("Szablon:$title");
+    print scalar(@links), "\t", $title, "\n";
+}

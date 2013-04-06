@@ -1,0 +1,50 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+use Tawbot;
+package main;
+
+
+unless (@ARGV == 3) {
+    print STDERR "Usage: $0 <file with all stubs> <category> <stub category>\n";
+    exit 1;
+}
+
+my ($list_of_all_stubs, $category, $stub_category) = @ARGV;
+
+open STUBS, $list_of_all_stubs or die "Can't open $list_of_all_stubs: $!";
+my @stubs = <STUBS>;
+chomp for @stubs;
+close STUBS;
+
+
+my $bot = Tawbot->new();
+
+my @articles_in_category = $bot->articles_in_category($category);
+
+# Find all stubs in category $category
+my @articles_to_try = intersection(\@stubs, \@articles_in_category);
+
+#print "$_\n" for @articles_to_try;
+
+my $cmd=qq[{
+if (\$cnt =~ s!\\Q{{stub}}\\E|\\Q{{msg:stub}}\\E|\\Q{{Szablon:stub}}\\E!{{$stub_category}}!i)
+        {
+            push \@summary, "Zmiana kategorii stuba na {{$stub_category}} na podstawie kategorii: $category";
+            1;
+        } else {
+            push \@failmsg, "not a stub";
+            0;
+        }
+}];
+$bot->run([$cmd], @articles_to_try);
+
+sub intersection {
+    my ($a,$b) = @_;
+    my %x;
+    my @res;
+    for(@$a) {$x{$_} = 1};
+    for(@$b) {push @res, $_ if $x{$_}};
+    return @res;
+}

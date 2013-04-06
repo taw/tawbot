@@ -1,0 +1,45 @@
+#!/usr/bin/ruby
+
+# Download requests
+def get_retype_req
+    system "./get 'Wikipedysta:Taw/Zalążki' >RETYPE-REQ"
+end
+
+# Download list of all stubs
+def get_stubs
+    stub_categories = [
+        #"Zalążki artykułów - wrzesień 2006",
+        #"Zalążki artykułów - październik 2006",
+        #"Zalążki artykułów - grudzień 2006",
+        #"Zalążki artykułów - styczeń 2007",
+        "Zalążki artykułów - luty 2007",
+    ]
+
+    # Clean STUBS
+    File.delete "STUBS" if File.exists? "STUBS"
+    # Fill it
+    stub_categories.each{|stub_cat|
+        puts "./pages_in_category '#{stub_cat}' >>STUBS"
+        system "./pages_in_category '#{stub_cat}' >>STUBS"
+    }
+end
+
+# Run !
+def do_everything
+    current_request = nil
+    File.open("RETYPE-REQ").each{|line|
+        line.chomp!
+        line.strip!
+        next if line == "" # Just ignore empty lines
+        if line =~ /^==(.*)==$/
+            current_request = $1
+        else
+            print "Changing pages in category #{line} to {{#{current_request}}}\n"
+            system "./stub_retype", "STUBS", line, current_request
+        end
+    }
+end
+
+get_retype_req
+get_stubs
+do_everything

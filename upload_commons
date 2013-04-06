@@ -1,0 +1,29 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+$|=1;
+# A convenience script with my favourite settings
+
+use Tawbot;
+
+my %args;
+
+my $summary_pl;
+my $summary_en;
+
+push @ARGV, '-u', 'http://commons.wikimedia.org/w/index.php', '-w'; #'-j', 'cookie_jar_commons';
+my $bot = Tawbot->new(
+    "license|l=s" => sub { $args{license} = $_[1] },
+#    "summary|s=s" => sub { $args{summary} = $_[1] },
+    "w" => sub { $args{watchlist} = 1 },
+    "destfilename|d=s" => sub { $args{destfilename} = 1 },
+    "pl=s" => \$summary_pl,
+    "en=s" => \$summary_en,
+);
+
+$args{summary} = "$summary_pl\n\n$summary_en";
+
+for my $file(@ARGV) {
+    $bot->upload($file, %args);
+}

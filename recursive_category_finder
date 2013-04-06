@@ -1,0 +1,26 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+use Tawbot;
+$|=1;
+
+%visited = ();
+%articles = ();
+$bot = Tawbot->new();
+
+sub recursive_category_finder
+{
+    my $category = shift;
+    return if $visited{$category};
+    print "Kategoria: $category\n";
+    $visited{$category} = 1;
+
+    my $stuff = $bot->stuff_in_category($category);
+
+    $articles{$_} = 1 for @{$stuff->{a}};
+    recursive_category_finder($_) for (@{$stuff->{s}})
+}
+
+recursive_category_finder($_) for @ARGV;
+print "Article: $_\n" for sort keys %articles;

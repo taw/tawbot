@@ -1,0 +1,31 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+$|=1;
+use Tawbot;
+use Digest::MD5 qw(md5_hex);
+
+my $url = "http://upload.wikimedia.org/wikipedia/pl";
+my $dir = "imgdir";
+
+my $bot = Tawbot->new(
+    "imgurl=s" => \$url,
+    "imgdir=s" => \$dir,
+);
+
+for my $title (@ARGV)
+{
+    # Process the $title
+    $title =~ y/ /_/;
+    my $md5 = md5_hex($title);
+    $u = sprintf "%s/%s/%s/%s", $url, substr($md5,0,1), substr($md5,0,2), $title;
+    print "Loading image ...";
+    my $img = $bot->get($u);
+    print "done.\n";
+    my $fn = "$dir/$title";
+    print "Saving image to $fn\n";
+    open F, ">", $fn;
+    print F $img;
+    close F;
+}

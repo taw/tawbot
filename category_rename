@@ -1,0 +1,35 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+use Tawbot;
+
+my $bot = Tawbot->new();
+my ($from, $to, $nomove) = @ARGV;
+
+my $stuff = $bot->stuff_in_category($from);
+my @articles = @{$stuff->{a}};
+my @subcategories = @{$stuff->{s}};
+
+my $carticles = @articles;
+my $csubcategories = @subcategories;
+print "Renaming [[Kategoria:$from]] to [[Kategoria:$to]] ($carticles articles, $csubcategories subcategories)\n";
+
+$bot->run(["-$from", "+$to"], @articles);
+$bot->run(["-$from", "+$to"], map {"Kategoria:$_"} @subcategories);
+
+exit if $nomove;
+
+my $from_cat_form = $bot->get_edit_form("Kategoria:$from");
+my $to_cat_form = $bot->get_edit_form("Kategoria:$to");
+
+my $category_description = $from_cat_form->value("wpTextbox1");
+
+$bot->fill_form($from_cat_form, "{{ek}}", "Zmiana nazwy kategorii z $from na $to, stara strona do skasowania");
+$bot->fill_form($to_cat_form, $category_description, "Zmiana nazwy kategorii z $from na $to");
+
+print "Posting $to\n";
+$bot->post($to_cat_form);
+
+print "Posting {{ek}} note at $from\n";
+$bot->post($from_cat_form);

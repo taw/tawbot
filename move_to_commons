@@ -1,0 +1,34 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+$|=1;
+use Tawbot;
+
+my %args;
+
+my $dir    = "imgdir";
+my $author;
+
+push @ARGV, "-u",'http://commons.wikimedia.org/w/index.php';
+my $bot = Tawbot->new(
+#    "imgurl=s" => \$url,
+    "imgdir=s"  => \$dir,
+    "authorl=s" => \$author,
+);
+
+my $bot_source = Tawbot->new();
+
+for my $title (@ARGV)
+{
+    my $dsc = $bot_source->get_raw("Grafika:$title");
+    if(defined $author) {
+        $dsc = "{{From pl wikipedia|$author}}\n" . $dsc;
+    }
+    $bot->upload("$dir/$title",
+        summary      => $dsc,
+        watchlist    => 0,
+        license      => '',
+        destfilename => $title
+    );
+}

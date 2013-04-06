@@ -1,0 +1,23 @@
+#!/usr/bin/ruby
+
+# system './get "Wikipedysta:Dobromila/stuby" >DOBROMILA-TODO-20070103'
+
+File.open("DOBROMILA-TODO-20070103").each{|line|
+    line.chomp!
+    case line
+    when /^\s*$/
+        # Ignore
+    when %r[^==\s*<nowiki>\s*(\{\{.*?\}\})\s*>>\s*(\{\{.*?\}\})\s*</nowiki>\s*==$]
+        $from, $to = $1, $2     
+    when /^=\S+=$/
+        # Ignore
+    when /^\[\[(.*)\]\](?:,\s*)?$/
+        # ,+ because of one ",," typo
+        articles = $1.split(/\]\]\s*,+\s*\[\[/)
+        articles.each{|a|
+            puts "#{a}\t#{$from}\t#{$to}"
+        }
+    else
+        puts "Unrecognized line: #{line}"
+    end
+}

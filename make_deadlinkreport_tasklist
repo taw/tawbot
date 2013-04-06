@@ -1,0 +1,19 @@
+#!/usr/bin/perl
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+my %dead_links;
+
+while(<>) {
+    next unless /^404\t/;
+    chomp;
+    my ($status, $art, $link) = split /\t/, $_;
+    # It will reject some of the articles
+    next if $art =~ /:/;
+    $dead_links{$art}{$link} = 1;
+}
+
+for my $art(sort keys %dead_links) {
+    my @dl = sort keys %{$dead_links{$art}};
+    print join("\t", $art, @dl) , "\n";
+}

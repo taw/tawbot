@@ -1,0 +1,17 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+$|=1;
+
+use Tawbot;
+
+my $bot = Tawbot->new();
+my $op = shift @ARGV;
+
+while(<STDIN>)
+{
+    chomp;
+    my $title = $_;
+    $bot->relink($title, sub { eval $op });
+}

@@ -1,0 +1,43 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+$/="</page>";
+my @urls;
+
+while(<>) {
+    unless(/<title>/) { next; }
+    m@<title>(.*?)</title>@ or die "No title";
+    my $title = $1;
+    my $text;
+    if(m@<text xml:space="preserve" />@) {
+        $text = "";
+    } elsif(m@<text xml:space="preserve">(.*?)</text>@s or die "No text: $_") {
+        $text = $1;
+    }
+    # There are 2 kinds of links - [links] and free links
+    while($text =~ m@(.)(https?://[^ \t\n\]]+)@g) {
+        my $url;
+        if($1 eq "[") {
+            $url = $2;
+        } else {
+            # Ignore this kind of ruls for now
+            next;
+            my $lcar = $1;
+            $url = $2;
+            my %EXP = ("gt" => ">", "lt" => "<", "quot" => '"', "amp" => "&");
+            $url =~ s!&(gt|lt|quot|amp);!$EXP{$1}!eg;
+            # handle &lt;/&gt;
+            $url =~ s/[">].*//; # "
+            if ($url =~ /\(/) {
+                $url =~ s/[,;\.:!\?)]*$//;
+            } else {
+                $url =~ s/[,;\.:!\?)]*$//;
+            }
+            # handle &amp;
+            $url = "$lcar, $url";
+        }
+        push @urls, [$title, $url];
+    }
+}
+print "$_->[0]\t$_->[1]\n" for @urls;

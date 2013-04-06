@@ -1,0 +1,30 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+$|=1;
+
+use Tawbot;
+package main;
+
+my $bot = Tawbot->new();
+
+for(<>) {
+    chomp;
+    my ($title, $stub_unq1, $stub2) = split /\t/, $_;
+    my $stub1 = quotemeta($stub_unq1);
+
+    print "Trying $title ... ";
+    my $form = $bot->get_edit_form($title);
+    print "downloaded ... ";
+    
+    $cnt = $form->value("wpTextbox1");
+    
+    if($cnt =~ s/$stub1/$stub2/i) {
+        $bot->fill_form($form, $cnt, "Zmiana kategorii stuba z $stub_unq1 na $stub2 na podstawie [[Wikipedysta:Dobromila/stuby]]");
+        $bot->post($form);
+        print "posted.\n";
+    } else {
+        print "not a stub.\n";
+    }
+}

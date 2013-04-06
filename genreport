@@ -1,0 +1,45 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+use URI;
+
+while(<>)
+{
+    next unless m!\[\[(.*?)\]\] \(poprawione linki na przekierowania: <a href=".*?" title=".*?">(.*?)</a> na <a href=".*?" title=".*?">(.*?)</a>\)!;
+    $x{$3}{$2}{$1} = 1;
+}
+
+for $target(sort keys %x)
+{
+    my %sources = %{$x{$target}};
+    my $first_letter = substr $target, 0, 1;
+    $first_letter = '0' unless $first_letter =~ /[A-Z]/;
+    
+    my $msg;
+    $msg .= "<li> " . wikilink($target)."\n<ul>";
+    for $source (sort keys %sources) {
+        my %articles = %{$sources{$source}};
+        $msg .= "<li> Linki przez " . wikilink($source). " na stronach: ";
+        $msg .= join(", ", map { wikilink($_) } sort keys %articles);
+        $msg .= "\n";
+    }
+    $msg .= "</ul>\n";
+    $reports{$first_letter} .= $msg;
+}
+
+for(sort keys %reports)
+{
+    open RAPORT, ">", "raport-$_.html";
+    print RAPORT "<html><head><title>Raport dla stron na $_</title><meta http-equiv='Content-type' value='text/html; charset=utf-8'></head><body><ul>\n";
+    print RAPORT $reports{$_};
+    print RAPORT "</ul></body></html>\n";
+    close RAPORT;    
+}
+
+sub wikilink
+{
+    my $title = shift;
+    my $u = URI->new("http://pl.wikipedia.org/wiki/$title");
+    qq[<a href="$u">$title</a>];
+}

@@ -1,0 +1,106 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+$|=1;
+
+use LWP;
+use LWP::UserAgent;
+use LWP::Simple;
+use HTTP::Request;
+use threads;
+use threads::shared;
+
+my @work_todo : shared = ();
+my @work_done : shared = ();
+my $finished : shared = 0;
+
+sub link_status {
+    my ($ua,$link) = @_;
+    #if(defined $CACHE{$link}) {
+"    #    "return $CACHE{$link};
+    #}
+    my $request = new HTTP::Request('HEAD', $link);
+    my $response = $ua->request($request);
+    my $status = $response->code;
+    #$CACHE{$link} = $status;
+    return $status;
+}
+
+sub worker {
+    #print STDERR "START worker\n";
+    my $ua = LWP::UserAgent->new();
+    while (1) {
+        my $cmd;
+        {
+            lock @work_todo;
+            $cmd = pop @work_todo;
+        }
+        if($cmd) {
+            my ($link, $title) = @$cmd;
+            #print STDERR "Processing command [$link, $title]\n";
+            my $status = link_status($ua,$link);
+            {
+                my @done_item : shared = ($status, $title, $link);
+                lock @work_done;
+                push @work_done, \@done_item;
+            }
+        } elsif($finished) {
+            last;
+        } else {
+            sleep 1;
+        }
+    }
+}
+
+my @t;
+push @t, threads->new(\&worker) for 1..20;
+
+my %CACHE;
+
+open CACHE_IN, "ZILLA-PARTIAL" or die "Can't open cache file: $!";
+while(<CACHE_IN>) {
+    chomp;
+    my ($code,$article,$url) = split /\t/,$_;
+    $CACHE{$url} = $code;
+}
+close CACHE_IN;
+
+#print STDERR "START main\n";
+while(1)
+{
+    {
+        lock @work_done;
+        for(@work_done) {
+            my ($result, $title, $link) = @$_;
+            $CACHE{$link} = $result;
+            print "$result\t$title\t$link\n";
+            #print STDERR "Fetched [$result, $title, $link] from done list\n";
+        }
+        @work_done = ();
+    }
+    if (@work_todo > 100) {
+        sleep 1;
+        next;
+    }
+    my $cmd = <>;
+    last unless defined $cmd;
+    $cmd =~ /^(.*)\t(.*)$/ or die "Bad input format of line $.: `$_'";
+    my($link, $title)=($1, $2);
+    if(defined $CACHE{$link})
+    {
+        my $result = $CACHE{$link};
+        print "$result\t$title\t$link\n";
+        next;
+    }
+    {
+        #print STDERR "Pushing [$link, $title] to todo list\n";
+        my @todo_item : shared = ($link, $title);
+        lock @work_todo;
+        push @work_todo, \@todo_item;
+    }
+    #my $result = link_status($ua, $link);
+    #print "$result\t$title\t$link\n";
+}
+
+$finished = 1;
+$_->join for @t;

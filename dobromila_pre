@@ -1,0 +1,18 @@
+#!/usr/bin/ruby
+
+stub = nil
+STDIN.each{|line|
+    line.chomp!
+    next unless line =~ /\S/
+    if line =~ /\A==\[\[Szablon:(.*)\|\1\]\]==\Z/
+        stub = $1
+        next
+    end
+    raise "Parse error: #{line}" if line =~ /=/
+    
+    line.sub!(/\A\[\[/,"") or raise line
+    line.sub!(/\]\]\Z/,"") or raise line
+    line.split(/\]\], *\[\[/).each{|a|
+        print "#{a}\t#{stub}\n"
+    }
+}

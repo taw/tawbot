@@ -1,0 +1,16 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+$|=1;
+use Tawbot;
+package main;
+
+my $bot = Tawbot->new();
+
+while(<STDIN>)
+{
+    chomp;
+    next unless $bot->edit_ok($_);
+    $bot->refresh($_);
+}

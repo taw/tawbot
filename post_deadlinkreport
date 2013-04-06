@@ -1,0 +1,24 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+$|=1;
+use Tawbot;
+package main;
+
+my $bot = Tawbot->new();
+
+while(<>) {
+    chomp;
+    my ($title, @dl) = split /\t/,$_;
+    my $text = "Bot wykrył, że następujące linki zewnętrzne z artykułu są martwe:\n";
+    $text .= join "", map { "* $_ [http://web.archive.org/web/*/$_ (Wayback machine)]\n" } @dl;
+    $text .= "[[Kategoria:Niezweryfikowane martwe linki]]\n";
+    
+    print "Trying $title ... ";
+    my $form = $bot->get_edit_form("Dyskusja:$title", "section" => "new");
+    print "downloaded ... ";
+    $bot->fill_form($form, $text, "Martwe linki");
+    $bot->post($form);
+    print "posted.\n";
+}

@@ -1,0 +1,10 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+use Tawbot;
+package main;
+
+my $bot = Tawbot->new();
+
+$bot->stdin_iface(@ARGV);

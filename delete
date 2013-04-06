@@ -1,0 +1,73 @@
+#!/usr/bin/perl
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+$|=1;
+
+use URI;
+use HTTP::Request;
+use HTTP::Request::Common;
+use HTTP::Headers;
+use HTTP::Cookies;
+use LWP;
+use HTML::Form;
+use Getopt::Long;
+
+my $cookie_jar_file = "cookie_jar_admin";
+my $reason = "";
+
+GetOptions("cookiejar|j=s" => \$cookie_jar_file,
+           "reason|r=s" => \$reason);
+die "You must give a reason for deletion (-r reason)" if $reason eq "";
+
+my $cookie_jar = HTTP::Cookies->new(file => $cookie_jar_file);
+my $ua = LWP::UserAgent->new;
+$ua->agent("Tawbot (public svn release; plwiki)");
+$ua->cookie_jar($cookie_jar);
+
+my @TODO = @ARGV;
+unless(@TODO)
+{
+    @TODO = <>;
+    chomp for @TODO;
+}
+
+for my $title (@TODO)
+{
+    print "Deleting $title ... ";
+    my $url = URI->new("http://pl.wikipedia.org/wiki/");
+    $url->query_form(
+        title => $title,
+        action => "delete"
+    );
+    my $res = $ua->request(GET $url);
+    unless($res->is_success) {
+        print "can't get Delete page: ", $res->message, ".\n";
+        next;
+#        exit 1;
+    }
+
+    my @forms = HTML::Form->parse($res->content, $res->base);
+    my $form;
+    for(@forms) {
+        if (defined($_->find_input("wpReason"))) {
+            $form = $_;
+            last;
+        }
+    }
+    unless(defined $form) {
+        print "can't find the correct form.\n";
+        next;
+#                die "Can't find the correct form"
+    }
+
+    $form->value(wpReason => $reason);
+    my $res2 = $ua->request($form->click());
+    unless($res2->is_success)
+    {
+        print "can't delete: ", $res->message, ".\n";
+        next;
+#        exit 1;
+    }
+    print "done.\n";
+}

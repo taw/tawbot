@@ -1,0 +1,66 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+use HTTP::Request;
+use HTTP::Request::Common;
+use HTTP::Headers;
+use HTTP::Cookies;
+use LWP;
+use HTML::Form;
+use Getopt::Long;
+
+my $cookie_jar_file = "cookie_jar_admin";
+my $username;
+my $reason = "Wandalizm";
+my $time = "infinite";
+
+GetOptions("user|u=s" => \$username,
+           "cookiejar|j=s" => \$cookie_jar_file,
+           "reason|r=s" => \$reason,
+           "time|t=s" => \$time);
+
+unless (defined $username)
+{
+    print STDERR "No user to be banned was specified\n";
+    exit 1;
+}
+
+my $url = "http://pl.wikipedia.org/wiki/Specjalna:Blockip";
+
+my $cookie_jar = HTTP::Cookies->new(file => $cookie_jar_file);
+my $ua = LWP::UserAgent->new;
+$ua->agent("Tawbot (public svn release; plwiki)");
+$ua->cookie_jar($cookie_jar);
+
+my $res = $ua->request(GET $url);
+unless($res->is_success) {
+    print STDERR "Can't get Blockip page: ", $res->message, "\n";
+    exit 1;
+}
+my @forms = HTML::Form->parse($res->content, $res->base);
+my $form;
+for(@forms) {
+    if (defined($_->find_input("wpBlockAddress"))) {
+        $form = $_;
+        last;
+    }
+}
+die "Correct form not found" unless defined $form;
+
+$form->value("wpBlockAddress", $username);
+$form->value("wpBlockReason", $reason);
+$form->value("wpBlockExpiry", "other"); # it's a default, but ...
+$form->value("wpBlockOther", $time);
+
+#print "$_\n" for $form->form;
+#print "----\n";
+#print $form->dump;
+#print "\n";
+#print $form->click, "\n";
+
+my $res2 = $ua->request($form->click);
+#unless($res2->is_success) {
+#    print STDERR "Can't block: ", $res->message, "\n";
+#    exit 1;
+#}

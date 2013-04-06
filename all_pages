@@ -1,0 +1,15 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+use Tawbot;
+package main;
+
+my $bot = Tawbot->new();
+# If no namespaces were specified, get all articles in the main namespace
+@ARGV = (0) if @ARGV == 0;
+for my $ns(@ARGV)
+{
+    my @pages = $bot->get_all_pages($ns);
+    print "$_\n" for @pages;
+}

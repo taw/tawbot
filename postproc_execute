@@ -1,0 +1,323 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+$|=1;
+
+use Tawbot;
+# Algorithm::Diff::sdiff is too slow
+#use Algorithm::Diff qw(sdiff);
+
+my $bot = Tawbot->new();
+$bot->install_url_cache("cache");
+
+# Algorithm::Diff::sdiff-compatible
+our $xun = 1;
+sub sdiff {
+    my ($from, $to) = @_;
+    my ($f1, $f2, $f3);
+
+    # Ugly tmp files
+    open $f1, ">", "tmp/f1";
+    print $f1 "$_\n" for @$from;
+    close $f1;
+
+    open $f2, ">", "tmp/f2";
+    print $f2 "$_\n" for @$to;
+    close $f2;
+
+    # Generate something easy to process
+    my @diff =
+`diff --changed-group-format "[
+%<%>]
+" --unchanged-line-format "=%L" --new-line-format ">%L" --old-line-format "<%L" tmp/f1 tmp/f2`;
+
+#    print STDERR @diff;
+    
+    # Create Algoritht::Data::sdiff-compatible structure
+    my $ai = 0;
+    my $bi = 0;
+    my @s;
+    while (defined ($_ = shift@diff))
+    {
+        chomp;
+        my $op = substr $_,0,1,"";
+        if($op eq "=") {
+            $_ = chr($_);
+            push @s, ['u', $_, $_];
+#                    print STDERR "= $_\n";
+        } elsif($op eq ">") {
+            $_ = chr($_);
+            push @s, ['+', '', $_];
+#                    print STDERR "+S $_\n";
+        } elsif($op eq "<") {
+            $_ = chr($_);
+            push @s, ['-', $_, ''];
+#                    print STDERR "-S $_\n";
+        } elsif($op eq "[") {
+            my @from;
+            my @to;
+            my $ok;
+            while(defined ($x = shift@diff)) {
+                chomp $x;
+                my $xop = substr $x,0,1,"";
+                if($xop eq '<') {
+                    push @from, $x;
+                } elsif($xop eq '>') {
+                    push @to, $x;
+                } elsif($xop eq ']') {
+                    $ok = 1;
+                    last;
+                } else {
+                    die "Parse error for output of diff command: $xop$x"
+                }
+            }
+            die "Premature end of diff output" unless $ok;
+            while(@from and @to)
+            {
+                my $L = chr(shift @from);
+                my $R = chr(shift @to);
+                push @s, ['c', $L, $R];
+#                        print STDERR "c $L $R\n";
+            }
+            for(@from)
+            {
+                $_ = chr($_);
+                push @s, ['-', $_, undef];
+#                        print STDERR "-T $_\n";
+            }
+            for(@to)
+            {
+                $_ = chr($_);
+                push @s, ['+', undef, $_];
+#                        print STDERR "+T $_\n";
+            }
+        } else {
+            die "Parse error for output of diff command: $op$_"
+        }
+    }
+    return wantarray ? @s : \@s;
+}
+
+sub merge3 {
+    my ($left, $common, $right) = @_;
+    my @left   = map {ord($_)} split "", $left;
+    my @common = map {ord($_)} split "", $common;
+    my @right  = map {ord($_)} split "", $right;
+
+    my @CL = sdiff(\@common, \@left);
+    my @CR = sdiff(\@common, \@right);
+    my @patched;
+
+    my @warnings;
+    my $warn = sub {
+        my($text, $arg) = @_;
+        if(@warnings and $warnings[-1][0] eq $text) {
+            $warnings[-1][1] .= $arg;
+        } else {
+            push @warnings, [$text, $arg];
+        }
+        $W = 1;
+    };
+
+    while (@CL and @CR)
+    {
+        my $L = shift @CL;
+        my $R = shift @CR;
+        my $lop = $L->[0];
+        my $rop = $R->[0];
+#                print "[ $lop $L->[1] $L->[2] ] [ $rop $R->[1] $R->[2] ]\n";
+        if($lop eq 'u' and $rop eq 'u') {
+            # $L->[1] eq $L->[2] etc.
+            push @patched, $L->[1];
+        # If there are inserts in both branches, insert twice, but warn
+        } elsif ($lop eq '+' and $rop eq '+') {
+            $warn->("Insert in both branches: ", $L->[2]);
+            push @patched, $L->[2];
+            unshift @CR, $R;
+        } elsif ($lop eq '+') {
+            push @patched, $L->[2];
+            unshift @CR, $R;
+        } elsif ($rop eq '+') {
+            push @patched, $R->[2];
+            unshift @CL, $L;
+        } elsif ($lop eq '-' and $rop eq 'u') {
+            # Delete in one branch, skip
+        } elsif ($lop eq 'u' and $rop eq '-') {
+            # Delete in one branch, skip
+        } elsif ($lop eq '-' and $rop eq '-') {
+            # Delete in both branches, weird but acceptable
+            $warn->("Delete in both branches: ", $L->[1]);
+        } elsif ($lop eq 'u' and $rop eq 'c') {
+            # Update in right branch
+            push @patched, $R->[2];
+        } elsif ($lop eq 'c' and $rop eq 'u') {
+            # Update in left branch
+            push @patched, $L->[2];
+        } elsif ($lop eq 'c' and $rop eq 'c') {
+            # Update in botch branches
+            if($L->[2] eq $R->[2]) {
+                $warn->("Update in both branches: ", $L->[2]);
+                push @patched, $L->[2];
+            } else {
+                warn "$_->[0] $_->[1]" for(@warnings);
+                die "Update conflict";
+            }
+        } elsif ($lop eq '-' and $rop eq 'c') {
+            warn "$_->[0] $_->[1]" for(@warnings);
+            die "Delete/update conflict";
+        } elsif ($lop eq 'c' and $rop eq '-') {
+            warn "$_->[0] $_->[1]" for(@warnings);
+            die "Update/delete conflict";
+        } else {
+            # Internal error
+            warn "$_->[0] $_->[1]" for(@warnings);
+            die "Mode combination not understood: <$lop, $rop>"
+        }
+    }
+    # Only one may be alive by now
+    my @C = (@CL,@CR);
+    while(@C)
+    {
+        my $E = shift @C;
+        my $op = $E->[0];
+        if($op eq '+') {
+            push @patched, $E->[2];
+        } elsif($op eq 'u' or $op eq 'c' or $op eq 'd') {
+            warn "$_->[0] $_->[1]" for(@warnings);
+            die "Non-insert change after end of content"
+        }
+    }
+    warn "$_->[0] $_->[1]" for(@warnings);
+    return join("", @patched);
+}
+
+sub link_subst_smart_one
+{
+    my ($bot, $cnt, $from, $to) = @_;
+    my $n = 0;
+    my $new_cnt = $bot->link_subst_smart($cnt, sub {
+        if($l eq $from)
+        {
+            $l = $to;
+            $n ++;
+        }
+    });
+    return ($new_cnt, $n);
+}
+
+sub corrections {
+    my ($bot, $from, $to, $reason, $articles) = @_;
+    my @articles = ($articles =~ m!\Q[[\E(.*?)\Q]]\E\((\d+)\)!g);
+    
+    my $korekta_text = "Korekta po poprawie linków na przekierowania";
+
+    while(@articles) {
+        my $title = shift @articles;
+        my $revid = shift @articles;
+        print "Trying to reverse change $revid to $title ... ";
+
+        eval { # Ignore any problems
+            my $new_cnt = $bot->get_raw_rev($title, $revid);
+            my $revid_prev = $bot->get_prev_revid($title, $revid);
+            my $old_cnt = $bot->get_raw_rev($title, $revid_prev);
+
+            my $form = $bot->get_edit_form($title, 0);
+            my $cur_cnt = $form->value("wpTextbox1");
+            
+            print "downloaded ... ";
+            
+            if($old_cnt eq $cur_cnt) {
+                print "already reverted.\n";
+            }elsif($new_cnt eq $cur_cnt) {
+                $bot->fill_form($form, $old_cnt, "$korekta_text ($reason, EXACT): $from na $to");
+                $bot->post($form);
+                print "perfectly reverted.\n";
+            } else {
+
+            local $W=undef;
+            my $merged;
+            eval {
+                $merged = merge3($old_cnt, $new_cnt, $cur_cnt);
+            };
+            warn $@ if $@;
+
+            if(defined $merged) {
+                if ($merged eq $cur_cnt) {
+                    print  "probably already reverted.\n";
+                } else {
+                    $W = $W ? "?" : "";
+" " x 16    $bot->fill_form($form, $merged, "$korekta_text ($reason, REVERT$W): $from na $to");
+                    print "merge ... ";
+                    $bot->post($form);
+                    print "done.\n";
+                }
+            } else {
+                my ($new_cnt, $n) = link_subst_smart_one($bot, $cur_cnt, $from, $to);
+                $bot->fill_form($form, $new_cnt, "$korekta_text ($reason, CHECK ME): $from na $to");
+                print "relink(${n}x) ... ";
+                $bot->post($form);
+                print "done.\n";
+            }
+            }
+        };
+        if($@)
+        {
+            warn $@;
+            print "To rerun:\n$LINE\n";
+        }
+    }
+}
+
+sub fullrelink
+{
+    my ($bot, $from, $to, $reason, $articles) = @_;
+    my @articles = ($articles =~ m!\Q[[\E(.*?)\Q]]\E\((\d+)\)!g);
+    
+    my $korekta_text = "Korekta po poprawie linków na przekierowania";
+
+    while(@articles) {
+        my $title = shift @articles;
+        my $revid = shift @articles;
+        print "Trying to relink ($from->$to) in $title ... ";
+
+        eval { # Ignore any problems
+            my $form = $bot->get_edit_form($title, 0);
+            my $cur_cnt = $form->value("wpTextbox1");
+            print "downloaded ... ";
+            my ($new_cnt, $n) = link_subst_smart_one($bot, $cur_cnt, $from, $to);
+            $bot->fill_form($form, $new_cnt, "$korekta_text ($reason, RELINK): $from na $to");
+            print "relink(${n}x) ... ";
+
+            $bot->post($form);
+            print "done.\n";
+            # POST
+        };
+        if($@)
+        {
+            warn $@;
+            print "To rerun:\n$LINE\n";
+        }
+    }
+}
+
+while(<>)
+{
+    chomp;
+    local $LINE = $_;
+    if(m!RELINK \Q[[\E(.*?)\Q]]\E<-\Q[[\E(.*?)\Q]]\E->\Q[[\E(.*?)\Q]]\E: (.*)!) {
+        my ($old_redir, $from, $to, $articles) = ($1, $2, $3, $4);
+        corrections($bot, $from, $to, "zmiana celu przekierowania $old_redir", $articles);
+    } elsif(m!FULLRELINK \Q[[\E(.*?)\Q]]\E->\Q[[\E(.*?)\Q]]\E: (.*)!) {
+        my ($from, $to, $articles) = ($1, $2, $3);
+        fullrelink($bot, $from, $to, "cel przekierowania $from jest teraz przekierowaniem", $articles);
+    } elsif (m!^REVERSE/NONREDIR \Q[[\E(.*?)\Q]]\E->\Q[[\E(.*?)\Q]]\E: (.*)!) {
+        my ($to, $from, $articles) = ($1, $2, $3);
+        corrections($bot, $from, $to, "dawne przekierowanie $to nie jest przekierowaniem", $articles);
+    } elsif (m!^REVERSE/TEMP \Q[[\E(.*?)\Q]]\E->\Q[[\E(.*?)\Q]]\E: (.*)!) {
+        my ($to, $from, $articles) = ($1, $2, $3);
+        corrections($bot, $from, $to, "przekierowanie $to oznaczone jako tymczasowe", $articles);
+    } else {
+        die "Unknown command: $_";
+    }
+}

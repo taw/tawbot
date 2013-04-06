@@ -1,0 +1,22 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+use Tawbot;
+
+my $bot = Tawbot->new();
+
+for my $title (@ARGV)
+{
+    my @links = $bot->what_links_to($title);
+    for(@links)
+    {
+        my ($art, $kind, @cor) = @$_;
+        print $art;
+        # These things may be rather annoying
+        #print " (redirect)" if $kind == 1;
+        #print " (template)" if $kind == 2;
+        #print " -> ", join(" -> ", @cor) if @cor;
+        print "\n";
+    }
+}

@@ -1,0 +1,17 @@
+#!/usr/bin/ruby
+
+STDIN.each{|line|
+    t, *ls = line.chomp.split(/\t/)
+    t.gsub!(/\\'/, "'\\\\''")
+    next if t =~ /"/ # Darn!
+    l = "\n{{Martwe linki|links=" + ls.map{|l|"* #{l}\n"}.join + "}}"
+    cnt = `./get '#{t}'`
+    unless cnt =~ /\S/
+        print "No content !"
+        next
+    end
+    cnt += l
+    IO.popen("./post '#{t}' 'Martwe linki do weryfikacji (#{ls.size})'", "w") {|p|
+        p.print cnt
+    }
+}

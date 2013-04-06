@@ -1,0 +1,13 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+# This program fetches given URL.
+# It does some make sense, as it may use admin cookie, unlike normal wget ;-)
+
+use Tawbot;
+package main;
+
+my $bot = Tawbot->new();
+my $raw = $bot->get_url(@ARGV);
+print $raw;

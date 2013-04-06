@@ -1,0 +1,49 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+$|=1;
+use Tawbot;
+my $bot=Tawbot->new();
+
+my @contributions = $bot->contributions("Tawbot");
+    
+for(@contributions)
+{
+    my $title = $_->{title};
+    my $summary = $_->{summary};
+    my $revid = $_->{revid};
+    next unless $summary =~ m!^poprawione linki na przekierowania: <a href=".*?" title=".*?">(.*?)</a> na <a href=".*?" title=".*?">(.*?)</a>$!;
+    # No keying by ($title,$revid) tuple
+    $x{$2}{$1}{$title}{$revid} = 1;
+}
+
+for $target(sort keys %x)
+{
+    my %sources = %{$x{$target}};
+    my $first_letter = substr $target, 0, 1;
+    $first_letter = '0' unless $first_letter =~ /[A-Z]/;
+
+    my $msg;
+    for $source (sort keys %sources) {
+        my %articles = %{$sources{$source}};
+# Line per change format instead of line per redirect
+#                $msg .= "[[$target]] [[$source]]: ";
+        my @targets;
+        for my $art(sort keys %articles)
+        {
+            my @revs = sort keys %{$articles{$art}};
+            push @targets, map { "[[$target]] [[$source]]: [[$art]]($_)\n" } @revs;
+        }
+        $msg .= join("", @targets);
+#                $msg .= "\n";
+    }
+    $reports{$first_letter} .= $msg;
+}
+
+for(sort keys %reports)
+{
+    open RAPORT, ">", "postproc-$_";
+    print RAPORT $reports{$_};
+    close RAPORT;    
+}

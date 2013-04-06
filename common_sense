@@ -1,0 +1,35 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+use HTTP::Request;
+use HTTP::Request::Common;
+use HTTP::Headers;
+use LWP;
+
+my $ua = LWP::UserAgent->new;
+$ua->agent("Tawbot (public svn release; plwiki)");
+
+for $image(@ARGV)
+{
+    my $url = URI->new("http://tools.wikimedia.de/~daniel/WikiSense/CommonSense.php");
+    $url->query_form(m => 'move',
+                     l => 'pl',
+                     i => $image,
+                     r => 'on',
+                     v => 0,
+                    );
+    my $res = $ua->request(GET $url);
+    unless ($res->is_success) {
+        print STDERR "Failed to get suggested categories for $image: ", $res->message, "\n";
+        exit 1;
+    }
+    my $content = $res->content;
+#    print $content;
+    
+    my ($cs, $usage, $cat, $gal) = split /\n\n/, $content;
+    my @cat = split /\n/,$cat;
+    shift @cat;
+    s/_/ /g for @cat;
+    print "$_\n" for @cat;
+}

@@ -1,0 +1,26 @@
+#!/usr/bin/perl -w
+# Copyright 2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+use Tawbot;
+use strict;
+
+my $bot = Tawbot->new();
+
+for my $title(<STDIN>)
+{
+    chomp $title;
+    my @editors = $bot->get_list_of_editors($title);
+    my $e = "($editors[0], $editors[1], $editors[2] ... ".(scalar @editors).")";
+    
+    if($editors[0] eq "Taw" and $editors[1] eq "Tawbot")
+    {
+        if($editors[2] eq "Tawbot") {
+            print "$title: BAD $e\n";
+        } else {
+            print "$title: OK $e\n";
+        }
+    } else {
+        print "$title: UNKNOWN $e\n";
+    }
+}

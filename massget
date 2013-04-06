@@ -1,0 +1,29 @@
+#!/usr/bin/perl -w
+# Copyright 2005-2006 Tomasz Wegrzanowski
+# Released under GNU General Public License, version 2 or higher
+
+$|=1;
+use Tawbot;
+package main;
+
+my $dir = "articles";
+my $force = 0;
+my $bot = Tawbot->new(
+    "directory|d=s" => sub { $dir = $_[1] },
+    "force|f" => sub { $force = 1 }
+);
+# No more hit/miss info with this API :-(
+# key-cache API requires building requests by hand
+# Maybe use URL-cache API ?
+$bot->install_key_cache($dir);
+while (<STDIN>)
+{
+    chomp;
+    my $title = $_;
+
+    print "Downloading $title ... ";
+    # Ignore the result
+    my $url = $bot->url(title=>$title, action=>"raw");
+    $bot->get($url, $title);
+    print "done.\n";
+}
